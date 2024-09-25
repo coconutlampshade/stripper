@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Stripper App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Boing Boing Content Stripper</h1>
+<p>Enter a Boing Boing permalink:</p>
+<textarea id="urlInput" placeholder=""></textarea> <!-- Empty placeholder -->
+<button onclick="fetchContent()">Strip Content</button>
+
+<div id="output"></div>
+
+<script>
+    async function fetchContent() {
+        const url = document.getElementById('urlInput').value;
+        const response = await fetch(url);
+        const text = await response.text();
+        
+        // Create a new DOM parser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        // Remove unwanted elements
+        const shareCommentsContainer = doc.querySelector('.share-comments-container');
+        if (shareCommentsContainer) {
+            shareCommentsContainer.remove(); // Remove comments section
+        }
+
+        const adContainer = doc.querySelector('.boing-single-post-rev-content');
+        if (adContainer) {
+            adContainer.remove(); // Remove advertisement content
+        }
+
+        const nextPostList = doc.querySelector('section.next-post-list-container');
+        if (nextPostList) {
+            nextPostList.remove(); // Remove next post list
+        }
+
+        // Remove user interface elements (admin-related)
+        const adminElements = doc.querySelectorAll('#wpadminbar, #sidebar1, .admin-bar');
+        adminElements.forEach(el => el.remove());
+
+        // Remove scripts and tracking
+        const scripts = doc.querySelectorAll('script');
+        scripts.forEach(script => script.remove());
+
+        // Get the main content (you may adjust the selector based on the actual structure)
+        const mainContent = doc.querySelector('article'); // Assuming the main content is in an <article> tag
+        if (mainContent) {
+            // Remove the author byline completely
+            const author = mainContent.querySelector('.byline');
+            if (author) {
+                author.remove(); // Remove the author element entirely
+            }
+
+            // Remove the date and time
+            const postDate = mainContent.querySelector('time.post-date');
+            if (postDate) {
+                postDate.remove(); // Remove the date and time element
+            }
+
+            // Set the featured image width and height
+            const featuredImage = mainContent.querySelector('img');
+            if (featuredImage) {
+                featuredImage.style.width = '800px'; // Set image width
+                featuredImage.style.height = 'auto'; // Maintain proportional height
+            }
+
+            // Change <span class="caption"> to <br><h6>
+            const captions = mainContent.querySelectorAll('span.caption');
+            captions.forEach(caption => {
+                const h6 = document.createElement('h6');
+                h6.textContent = caption.textContent; // Set the text of the <h6>
+                caption.replaceWith(document.createElement('br'), h6); // Replace <span> with <br> and <h6>
+            });
+
+            // Replace <figure> elements with YouTube link
+            const youtubeEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-type-video.is-provider-youtube');
+            youtubeEmbeds.forEach(figure => {
+                const iframe = figure.querySelector('iframe');
+                if (iframe) {
+                    const src = iframe.src;
+                    const videoId = src.split('/embed/')[1].split('?')[0]; // Extract video ID
+                    const newParagraph = document.createElement('p');
+                    newParagraph.textContent = `https://www.youtube.com/watch?v=${videoId}`; // Create new paragraph with link
+                    figure.replaceWith(newParagraph); // Replace <figure> with new paragraph
+                }
+            });
+
+            // Replace TikTok embeds with direct link
+            const tiktokEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-tiktok');
+            tiktokEmbeds.forEach(figure => {
+                const blockquote = figure.querySelector('blockquote.tiktok-embed');
+                if (blockquote) {
+                    const cite = blockquote.getAttribute('cite');
+                    if (cite) {
+                        const newParagraph = document.createElement('p');
+                        newParagraph.textContent = cite;
+                        figure.replaceWith(newParagraph);
+                    }
+                }
+            });
+
+            // Remove empty <p> tags
+            const emptyParagraphs = mainContent.querySelectorAll('p');
+            emptyParagraphs.forEach(p => {
+                if (!p.textContent.trim()) {
+                    p.remove(); // Remove empty paragraphs
+                }
+            });
+
+            // Create a temporary element to hold the cleaned content
+            const tempElement = document.createElement('div');
+            tempElement.innerHTML = mainContent.innerHTML;
+            document.body.appendChild(tempElement);
+
+            // Select the content
+            const range = document.createRange();
+            range.selectNodeContents(tempElement);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            // Execute copy command
+            document.execCommand('copy');
+
+            // Clean up
+            selection.removeAllRanges();
+            document.body.removeChild(tempElement);
+
+            // Get the cleaned HTML content
+            const cleanedContent = mainContent.innerHTML;
+
+            // Updated notification with button
+            document.getElementById('output').innerHTML = `
+                Cleaned content has been copied to clipboard. 
+                <br><br>
+                <button onclick="openSubstack()">Open Substack New Post Page</button>
+                <br><br>
+                After clicking the button above, please paste the content (Ctrl+V or Cmd+V) into the "Start writing..." area in the new tab.
+            `;
+        } else {
+            document.getElementById('output').innerHTML = 'Content not found';
+        }
+    }
+
+    function openSubstack() {
+        window.open('https://boingboing.substack.com/publish/post/', '_blank');
+    }
+</script>
+
+</body>
+</html>
