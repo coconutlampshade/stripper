@@ -133,6 +133,20 @@
                 }
             });
 
+            // Replace Instagram embeds with direct link
+            const instagramEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-instagram');
+            instagramEmbeds.forEach(figure => {
+                const blockquote = figure.querySelector('blockquote.instagram-media');
+                if (blockquote) {
+                    const permalink = blockquote.getAttribute('data-instgrm-permalink');
+                    if (permalink) {
+                        const newParagraph = document.createElement('p');
+                        newParagraph.textContent = permalink.split('?')[0]; // Remove query parameters
+                        figure.replaceWith(newParagraph);
+                    }
+                }
+            });
+
             // Remove empty <p> tags
             const emptyParagraphs = mainContent.querySelectorAll('p');
             emptyParagraphs.forEach(p => {
