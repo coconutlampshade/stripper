@@ -161,6 +161,11 @@
                 p.innerHTML = p.innerHTML.replace(/see video below/gi, 'see video');
             });
 
+            // Additional aggressive replacement on the entire content
+            mainContent.innerHTML = mainContent.innerHTML.replace(/see video below/gi, 'see video');
+
+            console.log('Performed aggressive replacement on entire content');
+
             // Create a temporary element to hold the cleaned content
             const tempElement = document.createElement('div');
             tempElement.innerHTML = mainContent.innerHTML;
