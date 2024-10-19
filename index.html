@@ -155,7 +155,7 @@
                 }
             });
 
-            // Remove "below" from "see video below"
+            // Remove "below" from "see video below" (case-insensitive)
             const paragraphs = mainContent.querySelectorAll('p');
             paragraphs.forEach(p => {
                 p.innerHTML = p.innerHTML.replace(/see video below/gi, 'see video');
