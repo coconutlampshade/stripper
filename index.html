@@ -155,6 +155,12 @@
                 }
             });
 
+            // Remove "below" from "see video below"
+            const paragraphs = mainContent.querySelectorAll('p');
+            paragraphs.forEach(p => {
+                p.innerHTML = p.innerHTML.replace(/see video below/gi, 'see video');
+            });
+
             // Create a temporary element to hold the cleaned content
             const tempElement = document.createElement('div');
             tempElement.innerHTML = mainContent.innerHTML;
