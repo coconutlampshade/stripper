@@ -155,14 +155,20 @@
                 }
             });
 
-            // Remove "below" from "see video below" (case-insensitive)
+            // Remove "below" from "see video below", even with HTML tags in between
             const paragraphs = mainContent.querySelectorAll('p');
             paragraphs.forEach(p => {
-                p.innerHTML = p.innerHTML.replace(/see video below/gi, 'see video');
+                p.innerHTML = p.innerHTML.replace(
+                    /see\s+(<[^>]+>)*video(<\/[^>]+>)*\s+below/gi,
+                    (match) => match.replace(/\s+below$/i, '')
+                );
             });
 
             // Additional aggressive replacement on the entire content
-            mainContent.innerHTML = mainContent.innerHTML.replace(/see video below/gi, 'see video');
+            mainContent.innerHTML = mainContent.innerHTML.replace(
+                /see\s+(<[^>]+>)*video(<\/[^>]+>)*\s+below/gi,
+                (match) => match.replace(/\s+below$/i, '')
+            );
 
             console.log('Performed aggressive replacement on entire content');
 
