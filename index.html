@@ -70,6 +70,12 @@
             if (mainContent) {
                 console.log('Found main content');
 
+                // Add this new code to remove previouslies
+                const previouslies = doc.querySelector('#previouslies');
+                if (previouslies) {
+                    previouslies.remove(); // Remove previouslies section
+                }
+
                 // Remove unwanted elements
                 const shareCommentsContainer = doc.querySelector('.share-comments-container');
                 if (shareCommentsContainer) {
