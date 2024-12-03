@@ -76,6 +76,15 @@
                     previouslies.remove(); // Remove previouslies section
                 }
 
+                // Remove previouslies paragraphs
+                const previouslyParagraphs = mainContent.querySelectorAll('p');
+                previouslyParagraphs.forEach(p => {
+                    if (p.innerHTML && p.innerHTML.includes('<strong>Previously:</strong>')) {
+                        console.log('Found previouslies paragraph, removing');
+                        p.remove();
+                    }
+                });
+
                 // Remove unwanted elements
                 const shareCommentsContainer = doc.querySelector('.share-comments-container');
                 if (shareCommentsContainer) {
