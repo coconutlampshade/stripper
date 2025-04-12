@@ -20,6 +20,20 @@
             height: 100px;
             margin-bottom: 10px;
         }
+        .rich-text-editor {
+            width: 100%;
+            min-height: 200px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: white;
+            overflow-y: auto;
+        }
+        .rich-text-editor:focus {
+            outline: none;
+            border-color: #28a745;
+        }
         button {
             padding: 10px 15px;
             background-color: #28a745;
@@ -35,261 +49,145 @@
 </head>
 <body>
 
-<h1>Boing Boing Content Stripper</h1>
-<p>Enter a Boing Boing permalink:</p>
-<textarea id="urlInput" placeholder=""></textarea> <!-- Empty placeholder -->
-<button onclick="fetchContent()">Strip Content</button>
+<h1>Scheduled Post Stripper</h1>
+<p>Instructions:</p>
+<ol>
+    <li>Go to the scheduled post in WordPress</li>
+    <li>Click "Preview" to open the post preview</li>
+    <li>Select all content (Ctrl+A or Cmd+A)</li>
+    <li>Copy the content (Ctrl+C or Cmd+C)</li>
+    <li>Paste it into the box below</li>
+</ol>
+<div id="contentInput" class="rich-text-editor" contenteditable="true" placeholder="Paste your content here..."></div>
+<button onclick="processContent()">Strip Content</button>
 
 <div id="output"></div>
 
 <script>
-    async function fetchContent() {
-        const url = document.getElementById('urlInput').value;
-        console.log('Fetching content from:', url);
+    async function processContent() {
+        const content = document.getElementById('contentInput').innerHTML;
+        console.log('Processing content...');
 
         try {
-            const response = await fetch(url);
-            const text = await response.text();
-            console.log('Fetched content length:', text.length);
-
             // Create a new DOM parser
             const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
+            const doc = parser.parseFromString(content, 'text/html');
 
-            // Remove red-bordered promotional boxes
-            const redBoxes = doc.querySelectorAll('.red-box');
-            redBoxes.forEach(box => box.remove());
-
-            // Also add this more comprehensive check for similar promotional content
-            const promotionalContent = doc.querySelectorAll('div[style*="border: 3px solid #ff0000"], div[style*="border:3px solid #ff0000"]');
-            promotionalContent.forEach(promo => promo.remove());
-
-            // Get the main content (you may adjust the selector based on the actual structure)
-            const mainContent = doc.querySelector('article'); // Assuming the main content is in an <article> tag
+            // Remove all ad-related content
+            const adSelectors = [
+                '.ad_pushdown',
+                '.boing-primis-video-in-article-content',
+                '.boing-single-post-rev-content',
+                '.boing-body-top-for-gumgum',
+                '.boing-highlight-wrapper',
+                'div[data-freestar-ad]',
+                'div[data-google-query-id]',
+                'div[data-rc-widget]',
+                'div[data-widget-host="habitat"]',
+                'div[data-title*="Placement name"]',
+                'div[data-title*="Ads"]',
+                'div[style*="border: 3px solid #ff0000"]',
+                'div[style*="border:3px solid #ff0000"]',
+                '.red-box',
+                '.fs-pushdown',
+                '.rc-widget',
+                '.next-post-list-container',
+                '.share-comments-container',
+                '.tags-list'
+            ];
             
-            if (mainContent) {
-                console.log('Found main content');
+            adSelectors.forEach(selector => {
+                const elements = doc.querySelectorAll(selector);
+                elements.forEach(el => el.remove());
+            });
 
-                // Add this new code to remove previouslies
-                const previouslies = doc.querySelector('#previouslies');
-                if (previouslies) {
-                    previouslies.remove(); // Remove previouslies section
-                }
-
-                // Remove previouslies paragraphs
-                const previouslyParagraphs = mainContent.querySelectorAll('p');
-                previouslyParagraphs.forEach(p => {
-                    if (p.innerHTML && p.innerHTML.includes('<strong>Previously:</strong>')) {
-                        console.log('Found previouslies paragraph, removing');
-                        p.remove();
-                    }
-                });
-
-                // Remove unwanted elements
-                const shareCommentsContainer = doc.querySelector('.share-comments-container');
-                if (shareCommentsContainer) {
-                    shareCommentsContainer.remove(); // Remove comments section
-                }
-
-                const adContainer = doc.querySelector('.boing-single-post-rev-content');
-                if (adContainer) {
-                    adContainer.remove(); // Remove advertisement content
-                }
-
-                const nextPostList = doc.querySelector('section.next-post-list-container');
-                if (nextPostList) {
-                    nextPostList.remove(); // Remove next post list
-                }
-
-                // Remove user interface elements (admin-related)
-                const adminElements = doc.querySelectorAll('#wpadminbar, #sidebar1, .admin-bar');
-                adminElements.forEach(el => el.remove());
-
-                // Remove scripts and tracking
-                const scripts = doc.querySelectorAll('script');
-                scripts.forEach(script => script.remove());
-
-                // Remove the author byline completely
-                const author = mainContent.querySelector('.byline');
-                if (author) {
-                    author.remove(); // Remove the author element entirely
-                }
-
-                // Remove the date and time
-                const postDate = mainContent.querySelector('time.post-date');
-                if (postDate) {
-                    postDate.remove(); // Remove the date and time element
-                }
-
-                // Transform featured image
-                const featuredImage = mainContent.querySelector('.featured-image img');
-                if (featuredImage) {
-                    const altText = featuredImage.getAttribute('alt');
-                    const srcUrl = featuredImage.getAttribute('src');
-                    
-                    // Create new figure element
+            // Convert featured images to figure elements
+            const featuredImages = doc.querySelectorAll('.featured-image');
+            featuredImages.forEach(featuredImage => {
+                const img = featuredImage.querySelector('img');
+                const caption = featuredImage.querySelector('.caption');
+                
+                if (img) {
                     const figure = document.createElement('figure');
-                    
-                    // Create new img element
                     const newImg = document.createElement('img');
-                    newImg.setAttribute('width', '600');
-                    newImg.setAttribute('src', srcUrl);
-                    
-                    // Create figcaption
                     const figcaption = document.createElement('figcaption');
-                    figcaption.textContent = altText;
                     
-                    // Assemble the new structure
+                    // Set image attributes
+                    newImg.width = 600;
+                    newImg.src = img.src.split('?')[0]; // Remove query parameters
+                    
+                    // Set caption text if exists
+                    if (caption) {
+                        figcaption.textContent = caption.textContent;
+                    }
+                    
+                    // Build the figure element
                     figure.appendChild(newImg);
                     figure.appendChild(figcaption);
                     
-                    // Replace the old featured-image div with the new figure
-                    const featuredImageDiv = mainContent.querySelector('.featured-image');
-                    if (featuredImageDiv) {
-                        featuredImageDiv.replaceWith(figure);
-                    }
+                    // Replace the original div with the new figure
+                    featuredImage.replaceWith(figure);
                 }
+            });
 
-                // Remove hyperlinks from all figcaptions
-                const figcaptions = mainContent.querySelectorAll('figcaption');
-                figcaptions.forEach(figcaption => {
-                    figcaption.innerHTML = figcaption.textContent;
-                });
-
-                // Change <span class="caption"> to <br><h6>
-                const captions = mainContent.querySelectorAll('span.caption');
-                captions.forEach(caption => {
-                    const h6 = document.createElement('h6');
-                    h6.textContent = caption.textContent; // Set the text of the <h6>
-                    caption.replaceWith(document.createElement('br'), h6); // Replace <span> with <br> and <h6>
-                });
-
-                // Replace <figure> elements with YouTube link
-                const youtubeEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-type-video.is-provider-youtube');
-                youtubeEmbeds.forEach(figure => {
-                    const iframe = figure.querySelector('iframe');
-                    if (iframe) {
-                        const src = iframe.src;
-                        const videoId = src.split('/embed/')[1].split('?')[0]; // Extract video ID
-                        const newParagraph = document.createElement('p');
-                        newParagraph.textContent = `https://www.youtube.com/watch?v=${videoId}`; // Create new paragraph with link
-                        figure.replaceWith(newParagraph); // Replace <figure> with new paragraph
+            // Find the h1 tag
+            const h1 = doc.querySelector('h1');
+            if (h1) {
+                // Find the article element that contains the h1
+                const article = h1.closest('article');
+                if (article) {
+                    // Create a new document fragment
+                    const fragment = document.createDocumentFragment();
+                    
+                    // Move the entire article content into the fragment
+                    while (article.firstChild) {
+                        fragment.appendChild(article.firstChild);
                     }
-                });
-
-                // Replace TikTok embeds with direct link
-                const tiktokEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-tiktok');
-                tiktokEmbeds.forEach(figure => {
-                    const blockquote = figure.querySelector('blockquote.tiktok-embed');
-                    if (blockquote) {
-                        const cite = blockquote.getAttribute('cite');
-                        if (cite) {
-                            const newParagraph = document.createElement('p');
-                            newParagraph.textContent = cite;
-                            figure.replaceWith(newParagraph);
-                        }
+                    
+                    // Clear the body and append the fragment
+                    doc.body.innerHTML = '';
+                    doc.body.appendChild(fragment);
+                } else {
+                    // If no article element found, just keep content from h1 onwards
+                    const fragment = document.createDocumentFragment();
+                    let currentNode = h1;
+                    
+                    while (currentNode) {
+                        const nextNode = currentNode.nextSibling;
+                        fragment.appendChild(currentNode);
+                        currentNode = nextNode;
                     }
-                });
-
-                // Replace Instagram embeds with direct link
-                const instagramEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-instagram');
-                instagramEmbeds.forEach(figure => {
-                    const blockquote = figure.querySelector('blockquote.instagram-media');
-                    if (blockquote) {
-                        const permalink = blockquote.getAttribute('data-instgrm-permalink');
-                        if (permalink) {
-                            const newParagraph = document.createElement('p');
-                            newParagraph.textContent = permalink.split('?')[0]; // Remove query parameters
-                            figure.replaceWith(newParagraph);
-                        }
-                    }
-                });
-
-                // Remove empty <p> tags
-                const emptyParagraphs = mainContent.querySelectorAll('p');
-                emptyParagraphs.forEach(p => {
-                    if (!p.textContent.trim()) {
-                        p.remove(); // Remove empty paragraphs
-                    }
-                });
-
-                // Remove "below" from "see video below", even with HTML tags in between
-                const paragraphs = mainContent.querySelectorAll('p');
-                paragraphs.forEach(p => {
-                    p.innerHTML = p.innerHTML.replace(
-                        /see\s+(<[^>]+>)*video(<\/[^>]+>)*\s+below/gi,
-                        (match) => match.replace(/\s+below$/i, '')
-                    );
-                });
-
-                // Additional aggressive replacement on the entire content
-                mainContent.innerHTML = mainContent.innerHTML.replace(
-                    /see\s+(<[^>]+>)*video(<\/[^>]+>)*\s+below/gi,
-                    (match) => match.replace(/\s+below$/i, '')
-                );
-
-                console.log('Performed aggressive replacement on entire content');
-
-                // Create a temporary element to hold the cleaned content
-                const tempElement = document.createElement('div');
-                tempElement.innerHTML = mainContent.innerHTML;
-                document.body.appendChild(tempElement);
-
-                // Select the content
-                const range = document.createRange();
-                range.selectNodeContents(tempElement);
-                const selection = window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-
-                // Execute copy command
-                document.execCommand('copy');
-
-                // Clean up
-                selection.removeAllRanges();
-                document.body.removeChild(tempElement);
-
-                // Get the cleaned HTML content
-                const cleanedContent = mainContent.innerHTML;
-                console.log('Cleaned content length:', cleanedContent.length);
-
-                // Display the controls and cleaned content on the page
-                document.getElementById('output').innerHTML = `
-                    <h2>Processed Content:</h2>
-                    <p>Cleaned content has been copied to clipboard.</p>
-                    <button onclick="openSubstack()">Open Substack New Post Page</button>
-                    <button onclick="inspectHTML()">Inspect HTML</button>
-                    <p>After clicking the "Open Substack" button above, please paste the content (Ctrl+V or Cmd+V) into the "Start writing..." area in the new tab.</p>
-                    <br><br>
-                    <h3>Cleaned Content:</h3>
-                    <div id="cleanedContentDisplay">${cleanedContent}</div>
-                `;
-                console.log('Content displayed in output div');
-
-                // Change image alt text to figcaptions
-                const images = mainContent.querySelectorAll('img');
-                images.forEach(img => {
-                    const altText = img.getAttribute('alt');
-                    if (altText && altText.trim() !== '') {
-                        const figure = document.createElement('figure');
-                        const figcaption = document.createElement('figcaption');
-                        figcaption.textContent = altText;
-                        
-                        // Replace the img with the new figure structure
-                        img.parentNode.insertBefore(figure, img);
-                        figure.appendChild(img);
-                        figure.appendChild(figcaption);
-                        
-                        // Remove the alt attribute from the image
-                        img.removeAttribute('alt');
-                    }
-                });
-            } else {
-                console.log('Main content not found');
-                document.getElementById('output').innerHTML = 'Content not found';
+                    
+                    doc.body.innerHTML = '';
+                    doc.body.appendChild(fragment);
+                }
             }
+
+            // Get the cleaned HTML content
+            const cleanedContent = doc.body.innerHTML;
+
+            // Display the processed content
+            document.getElementById('output').innerHTML = `
+                <h2>Processed Content:</h2>
+                <p>Cleaned content has been copied to clipboard.</p>
+                <button onclick="openSubstack()">Open Substack New Post Page</button>
+                <button onclick="inspectHTML()">Inspect HTML</button>
+                <p>After clicking the "Open Substack" button above, please paste the content (Ctrl+V or Cmd+V) into the "Start writing..." area in the new tab.</p>
+                <br><br>
+                <h3>Cleaned Content:</h3>
+                <div id="cleanedContentDisplay" contenteditable="true">${cleanedContent}</div>
+            `;
+
+            // Copy rich text content to clipboard
+            const range = document.createRange();
+            range.selectNode(document.getElementById('cleanedContentDisplay'));
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand('copy');
+            selection.removeAllRanges();
         } catch (error) {
-            console.error('Error fetching or processing content:', error);
+            console.error('Error processing content:', error);
             document.getElementById('output').innerHTML = 'Error: ' + error.message;
         }
     }
@@ -321,6 +219,50 @@
             <div id="originalContent" style="display:none;">${originalContent}</div>
             ${htmlDisplay}
         `;
+    }
+
+    // Add new method to handle embeds
+    function handleEmbeds(mainContent) {
+        // Replace <figure> elements with YouTube link
+        const youtubeEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-type-video.is-provider-youtube');
+        youtubeEmbeds.forEach(figure => {
+            const iframe = figure.querySelector('iframe');
+            if (iframe) {
+                const src = iframe.src;
+                const videoId = src.split('/embed/')[1].split('?')[0];
+                const newParagraph = document.createElement('p');
+                newParagraph.textContent = `https://www.youtube.com/watch?v=${videoId}`;
+                figure.replaceWith(newParagraph);
+            }
+        });
+
+        // Replace TikTok embeds with direct link
+        const tiktokEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-tiktok');
+        tiktokEmbeds.forEach(figure => {
+            const blockquote = figure.querySelector('blockquote.tiktok-embed');
+            if (blockquote) {
+                const cite = blockquote.getAttribute('cite');
+                if (cite) {
+                    const newParagraph = document.createElement('p');
+                    newParagraph.textContent = cite;
+                    figure.replaceWith(newParagraph);
+                }
+            }
+        });
+
+        // Replace Instagram embeds with direct link
+        const instagramEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-instagram');
+        instagramEmbeds.forEach(figure => {
+            const blockquote = figure.querySelector('blockquote.instagram-media');
+            if (blockquote) {
+                const permalink = blockquote.getAttribute('data-instgrm-permalink');
+                if (permalink) {
+                    const newParagraph = document.createElement('p');
+                    newParagraph.textContent = permalink.split('?')[0];
+                    figure.replaceWith(newParagraph);
+                }
+            }
+        });
     }
 </script>
 
