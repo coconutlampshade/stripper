@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Stripper App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Boing Boing Content Stripper</h1>
+<p>Enter a Boing Boing permalink:</p>
+<textarea id="urlInput" placeholder=""></textarea> <!-- Empty placeholder -->
+<button onclick="fetchContent()">Strip Content</button>
+
+<div id="output"></div>
+
+<script>
+    async function fetchContent() {
+        const url = document.getElementById('urlInput').value;
+        console.log('Fetching content from:', url);
+
+        try {
+            const response = await fetch(url);
+            const text = await response.text();
+            console.log('Fetched content length:', text.length);
+
+            // Create a new DOM parser
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            // Remove red-bordered promotional boxes
+            const redBoxes = doc.querySelectorAll('.red-box');
+            redBoxes.forEach(box => box.remove());
+
+            // Also add this more comprehensive check for similar promotional content
+            const promotionalContent = doc.querySelectorAll('div[style*="border: 3px solid #ff0000"], div[style*="border:3px solid #ff0000"]');
+            promotionalContent.forEach(promo => promo.remove());
+
+            // Get the main content (you may adjust the selector based on the actual structure)
+            const mainContent = doc.querySelector('article'); // Assuming the main content is in an <article> tag
+            
+            if (mainContent) {
+                console.log('Found main content');
+
+                // Add this new code to remove previouslies
+                const previouslies = doc.querySelector('#previouslies');
+                if (previouslies) {
+                    previouslies.remove(); // Remove previouslies section
+                }
+
+                // Remove unwanted elements
+                const shareCommentsContainer = doc.querySelector('.share-comments-container');
+                if (shareCommentsContainer) {
+                    shareCommentsContainer.remove(); // Remove comments section
+                }
+
+                const adContainer = doc.querySelector('.boing-single-post-rev-content');
+                if (adContainer) {
+                    adContainer.remove(); // Remove advertisement content
+                }
+
+                const nextPostList = doc.querySelector('section.next-post-list-container');
+                if (nextPostList) {
+                    nextPostList.remove(); // Remove next post list
+                }
+
+                // Remove user interface elements (admin-related)
+                const adminElements = doc.querySelectorAll('#wpadminbar, #sidebar1, .admin-bar');
+                adminElements.forEach(el => el.remove());
+
+                // Remove scripts and tracking
+                const scripts = doc.querySelectorAll('script');
+                scripts.forEach(script => script.remove());
+
+                // Remove the author byline completely
+                const author = mainContent.querySelector('.byline');
+                if (author) {
+                    author.remove(); // Remove the author element entirely
+                }
+
+                // Remove the date and time
+                const postDate = mainContent.querySelector('time.post-date');
+                if (postDate) {
+                    postDate.remove(); // Remove the date and time element
+                }
+
+                // Transform featured image
+                const featuredImage = mainContent.querySelector('.featured-image img');
+                if (featuredImage) {
+                    const altText = featuredImage.getAttribute('alt');
+                    const srcUrl = featuredImage.getAttribute('src');
+                    
+                    // Create new figure element
+                    const figure = document.createElement('figure');
+                    
+                    // Create new img element
+                    const newImg = document.createElement('img');
+                    newImg.setAttribute('width', '600');
+                    newImg.setAttribute('src', srcUrl);
+                    
+                    // Create figcaption
+                    const figcaption = document.createElement('figcaption');
+                    figcaption.textContent = altText;
+                    
+                    // Assemble the new structure
+                    figure.appendChild(newImg);
+                    figure.appendChild(figcaption);
+                    
+                    // Replace the old featured-image div with the new figure
+                    const featuredImageDiv = mainContent.querySelector('.featured-image');
+                    if (featuredImageDiv) {
+                        featuredImageDiv.replaceWith(figure);
+                    }
+                }
+
+                // Remove hyperlinks from all figcaptions
+                const figcaptions = mainContent.querySelectorAll('figcaption');
+                figcaptions.forEach(figcaption => {
+                    figcaption.innerHTML = figcaption.textContent;
+                });
+
+                // Change <span class="caption"> to <br><h6>
+                const captions = mainContent.querySelectorAll('span.caption');
+                captions.forEach(caption => {
+                    const h6 = document.createElement('h6');
+                    h6.textContent = caption.textContent; // Set the text of the <h6>
+                    caption.replaceWith(document.createElement('br'), h6); // Replace <span> with <br> and <h6>
+                });
+
+                // Replace <figure> elements with YouTube link
+                const youtubeEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-type-video.is-provider-youtube');
+                youtubeEmbeds.forEach(figure => {
+                    const iframe = figure.querySelector('iframe');
+                    if (iframe) {
+                        const src = iframe.src;
+                        const videoId = src.split('/embed/')[1].split('?')[0]; // Extract video ID
+                        const newParagraph = document.createElement('p');
+                        newParagraph.textContent = `https://www.youtube.com/watch?v=${videoId}`; // Create new paragraph with link
+                        figure.replaceWith(newParagraph); // Replace <figure> with new paragraph
+                    }
+                });
+
+                // Replace TikTok embeds with direct link
+                const tiktokEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-tiktok');
+                tiktokEmbeds.forEach(figure => {
+                    const blockquote = figure.querySelector('blockquote.tiktok-embed');
+                    if (blockquote) {
+                        const cite = blockquote.getAttribute('cite');
+                        if (cite) {
+                            const newParagraph = document.createElement('p');
+                            newParagraph.textContent = cite;
+                            figure.replaceWith(newParagraph);
+                        }
+                    }
+                });
+
+                // Replace Instagram embeds with direct link
+                const instagramEmbeds = mainContent.querySelectorAll('figure.wp-block-embed.is-provider-instagram');
+                instagramEmbeds.forEach(figure => {
+                    const blockquote = figure.querySelector('blockquote.instagram-media');
+                    if (blockquote) {
+                        const permalink = blockquote.getAttribute('data-instgrm-permalink');
+                        if (permalink) {
+                            const newParagraph = document.createElement('p');
+                            newParagraph.textContent = permalink.split('?')[0]; // Remove query parameters
+                            figure.replaceWith(newParagraph);
+                        }
+                    }
+                });
+
+                // Remove empty <p> tags
+                const emptyParagraphs = mainContent.querySelectorAll('p');
+                emptyParagraphs.forEach(p => {
+                    if (!p.textContent.trim()) {
+                        p.remove(); // Remove empty paragraphs
+                    }
+                });
+
+                // Remove "below" from "see video below", even with HTML tags in between
+                const paragraphs = mainContent.querySelectorAll('p');
+                paragraphs.forEach(p => {
+                    p.innerHTML = p.innerHTML.replace(
+                        /see\s+(<[^>]+>)*video(<\/[^>]+>)*\s+below/gi,
+                        (match) => match.replace(/\s+below$/i, '')
+                    );
+                });
+
+                // Additional aggressive replacement on the entire content
+                mainContent.innerHTML = mainContent.innerHTML.replace(
+                    /see\s+(<[^>]+>)*video(<\/[^>]+>)*\s+below/gi,
+                    (match) => match.replace(/\s+below$/i, '')
+                );
+
+                console.log('Performed aggressive replacement on entire content');
+
+                // Create a temporary element to hold the cleaned content
+                const tempElement = document.createElement('div');
+                tempElement.innerHTML = mainContent.innerHTML;
+                document.body.appendChild(tempElement);
+
+                // Select the content
+                const range = document.createRange();
+                range.selectNodeContents(tempElement);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                // Execute copy command
+                document.execCommand('copy');
+
+                // Clean up
+                selection.removeAllRanges();
+                document.body.removeChild(tempElement);
+
+                // Get the cleaned HTML content
+                const cleanedContent = mainContent.innerHTML;
+                console.log('Cleaned content length:', cleanedContent.length);
+
+                // Display the controls and cleaned content on the page
+                document.getElementById('output').innerHTML = `
+                    <h2>Processed Content:</h2>
+                    <p>Cleaned content has been copied to clipboard.</p>
+                    <button onclick="openSubstack()">Open Substack New Post Page</button>
+                    <button onclick="inspectHTML()">Inspect HTML</button>
+                    <p>After clicking the "Open Substack" button above, please paste the content (Ctrl+V or Cmd+V) into the "Start writing..." area in the new tab.</p>
+                    <br><br>
+                    <h3>Cleaned Content:</h3>
+                    <div id="cleanedContentDisplay">${cleanedContent}</div>
+                `;
+                console.log('Content displayed in output div');
+
+                // Change image alt text to figcaptions
+                const images = mainContent.querySelectorAll('img');
+                images.forEach(img => {
+                    const altText = img.getAttribute('alt');
+                    if (altText && altText.trim() !== '') {
+                        const figure = document.createElement('figure');
+                        const figcaption = document.createElement('figcaption');
+                        figcaption.textContent = altText;
+                        
+                        // Replace the img with the new figure structure
+                        img.parentNode.insertBefore(figure, img);
+                        figure.appendChild(img);
+                        figure.appendChild(figcaption);
+                        
+                        // Remove the alt attribute from the image
+                        img.removeAttribute('alt');
+                    }
+                });
+            } else {
+                console.log('Main content not found');
+                document.getElementById('output').innerHTML = 'Content not found';
+            }
+        } catch (error) {
+            console.error('Error fetching or processing content:', error);
+            document.getElementById('output').innerHTML = 'Error: ' + error.message;
+        }
+    }
+
+    function openSubstack() {
+        window.open('https://boingboing.substack.com/publish/post/', '_blank');
+    }
+
+    function inspectHTML() {
+        const cleanedContent = document.getElementById('cleanedContentDisplay').innerHTML;
+        const escapedHTML = cleanedContent
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        
+        const htmlDisplay = `
+            <h2>HTML Source:</h2>
+            <button onclick="document.getElementById('output').innerHTML = document.getElementById('originalContent').innerHTML;">Back to Cleaned Content</button>
+            <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f4f4f4; padding: 10px; border: 1px solid #ddd;">
+                <code>${escapedHTML}</code>
+            </pre>
+        `;
+        
+        // Store the original content
+        const originalContent = document.getElementById('output').innerHTML;
+        document.getElementById('output').innerHTML = `
+            <div id="originalContent" style="display:none;">${originalContent}</div>
+            ${htmlDisplay}
+        `;
+    }
+</script>
+
+</body>
+</html>
